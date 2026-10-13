@@ -2,6 +2,9 @@ with open('data/input.txt', 'r') as file:
     TEXT = file.read()
 
 vocab = set(TEXT)
+
+VOCAB_SIZE = len(vocab)
+
 vocab = list(vocab)
 vocab.sort()
 
