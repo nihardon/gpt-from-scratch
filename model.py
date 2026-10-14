@@ -7,6 +7,8 @@ from tokenizer import VOCAB_SIZE
 
 N_EMBED = 32
 
+torch.manual_seed(1)
+
 x, y = get_batch('train')
 
 
@@ -36,21 +38,37 @@ class Head(nn.Module):
         return scores
 
 
+class FeedForward(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.ff = nn.Sequential(nn.Linear(N_EMBED, 4*N_EMBED), 
+                                nn.ReLU(), 
+                                nn.Linear(4*N_EMBED, N_EMBED))
+
+    def forward(self, x):
+        out = self.ff(x)
+        return out
+
 class GPT(nn.Module):
     def __init__(self):
         super().__init__()
         self.embedding_model = nn.Embedding(VOCAB_SIZE, N_EMBED)
         self.positional_encoding = nn.Embedding(BLOCK_SIZE, N_EMBED)
         self.head = Head(head_size=N_EMBED)
+        self.ff = FeedForward()
         self.out_scores = nn.Linear(N_EMBED, VOCAB_SIZE)
 
     def forward(self, x, y):
-        embeddings = self.embedding_model(x)
         positions = torch.arange(x.shape[1])
+
+        embeddings = self.embedding_model(x)
         positional_encodings = self.positional_encoding(positions)
-        positional_embeddings = embeddings + positional_encodings
-        contextual_embeddings = self.head(positional_embeddings)
-        logits = self.out_scores(contextual_embeddings)
+        stream = embeddings + positional_encodings
+        context = self.head(stream)
+        stream = stream + context
+        stream = stream + self.ff(stream)
+
+        logits = self.out_scores(stream)
         logits = logits.view(x.shape[0] * x.shape[1], VOCAB_SIZE)
         y = y.view(logits.shape[0])
         loss = F.cross_entropy(logits, y)
