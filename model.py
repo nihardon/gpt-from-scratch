@@ -6,6 +6,7 @@ from tokenizer import VOCAB_SIZE
 
 
 N_EMBED = 32
+N_HEAD = 4
 
 torch.manual_seed(1)
 
@@ -38,6 +39,21 @@ class Head(nn.Module):
         return scores
 
 
+class MultiHeadAttention(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.heads = nn.ModuleList()
+        for _ in range(N_HEAD):
+            self.heads.append(Head(N_EMBED//N_HEAD))
+        self.linear_layer = nn.Linear(N_EMBED, N_EMBED)
+
+    def forward(self, x):
+        out = []
+        for head in self.heads:
+            out.append(head(x))
+        out = torch.cat(out, dim=-1)
+        return self.linear_layer(out)
+
 class FeedForward(nn.Module):
     def __init__(self):
         super().__init__()
@@ -54,8 +70,11 @@ class GPT(nn.Module):
         super().__init__()
         self.embedding_model = nn.Embedding(VOCAB_SIZE, N_EMBED)
         self.positional_encoding = nn.Embedding(BLOCK_SIZE, N_EMBED)
-        self.head = Head(head_size=N_EMBED)
+        self.norm1 = nn.LayerNorm(N_EMBED)
+        self.attention = MultiHeadAttention()
+        self.norm2 = nn.LayerNorm(N_EMBED)
         self.ff = FeedForward()
+        self.norm3 = nn.LayerNorm(N_EMBED)
         self.out_scores = nn.Linear(N_EMBED, VOCAB_SIZE)
 
     def forward(self, x, y):
@@ -64,11 +83,10 @@ class GPT(nn.Module):
         embeddings = self.embedding_model(x)
         positional_encodings = self.positional_encoding(positions)
         stream = embeddings + positional_encodings
-        context = self.head(stream)
+        context = self.attention(self.norm1(stream))
         stream = stream + context
-        stream = stream + self.ff(stream)
-
-        logits = self.out_scores(stream)
+        stream = stream + self.ff(self.norm2(stream))
+        logits = self.out_scores(self.norm3(stream))
         logits = logits.view(x.shape[0] * x.shape[1], VOCAB_SIZE)
         y = y.view(logits.shape[0])
         loss = F.cross_entropy(logits, y)
