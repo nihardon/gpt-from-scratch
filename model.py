@@ -7,6 +7,7 @@ from tokenizer import VOCAB_SIZE
 
 N_EMBED = 32
 N_HEAD = 4
+N_LAYER = 3
 
 torch.manual_seed(1)
 
@@ -54,6 +55,7 @@ class MultiHeadAttention(nn.Module):
         out = torch.cat(out, dim=-1)
         return self.linear_layer(out)
 
+
 class FeedForward(nn.Module):
     def __init__(self):
         super().__init__()
@@ -65,28 +67,44 @@ class FeedForward(nn.Module):
         out = self.ff(x)
         return out
 
+
+class Block(nn.Module):    
+    def __init__(self):
+        super().__init__()
+        self.norm1 = nn.LayerNorm(N_EMBED)
+        self.attention = MultiHeadAttention()
+        self.norm2 = nn.LayerNorm(N_EMBED)
+        self.ff = FeedForward()
+
+    def forward(self, x):
+        context = self.attention(self.norm1(x))
+        stream = x + context
+        return stream + self.ff(self.norm2(stream))
+
+
 class GPT(nn.Module):
     def __init__(self):
         super().__init__()
         self.embedding_model = nn.Embedding(VOCAB_SIZE, N_EMBED)
         self.positional_encoding = nn.Embedding(BLOCK_SIZE, N_EMBED)
-        self.norm1 = nn.LayerNorm(N_EMBED)
-        self.attention = MultiHeadAttention()
-        self.norm2 = nn.LayerNorm(N_EMBED)
-        self.ff = FeedForward()
-        self.norm3 = nn.LayerNorm(N_EMBED)
+        
+        blocks = []
+        for _ in range(N_LAYER):
+            blocks.append(Block())
+        self.blocks = nn.Sequential(*blocks)
+        
+        self.norm = nn.LayerNorm(N_EMBED)
         self.out_scores = nn.Linear(N_EMBED, VOCAB_SIZE)
 
     def forward(self, x, y):
         positions = torch.arange(x.shape[1])
-
         embeddings = self.embedding_model(x)
         positional_encodings = self.positional_encoding(positions)
         stream = embeddings + positional_encodings
-        context = self.attention(self.norm1(stream))
-        stream = stream + context
-        stream = stream + self.ff(self.norm2(stream))
-        logits = self.out_scores(self.norm3(stream))
+        
+        stream = self.blocks(stream)
+        
+        logits = self.out_scores(self.norm(stream))
         logits = logits.view(x.shape[0] * x.shape[1], VOCAB_SIZE)
         y = y.view(logits.shape[0])
         loss = F.cross_entropy(logits, y)
