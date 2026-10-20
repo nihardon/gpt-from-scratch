@@ -94,7 +94,11 @@ class Transformer(nn.Module):
         self.blocks = nn.Sequential(*blocks)
         
         self.norm = nn.LayerNorm(N_EMBED)
-        self.out_scores = nn.Linear(N_EMBED, VOCAB_SIZE)
+        self.out_scores = nn.Linear(N_EMBED, VOCAB_SIZE, bias=False)
+        self.out_scores.weight = self.embedding_model.weight
+
+        torch.nn.init.normal_(self.embedding_model.weight, 0, 0.02)
+        torch.nn.init.normal_(self.positional_encoding.weight, 0, 0.02)
 
     def forward(self, x, y = None):
         positions = torch.arange(x.shape[1], device=x.device)

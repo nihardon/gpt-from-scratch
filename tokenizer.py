@@ -1,30 +1,10 @@
-with open('data/input.txt', 'r') as file:
-    TEXT = file.read()
+import tiktoken
 
-vocab = set(TEXT)
+encoder = tiktoken.get_encoding('gpt2')
 
-VOCAB_SIZE = len(vocab)
+VOCAB_SIZE = encoder.n_vocab
+EOT = encoder.eot_token
 
-vocab = list(vocab)
-vocab.sort()
-
-
-stoi = {}
-itos = {}
-
-for i, c in enumerate(vocab):
-    stoi[c] = i
-    itos[i] = c
-
-def encode(s: str) -> list[int]:
-    l = []
-    for c in s:
-        l.append(stoi[c])
-    return l
-
-def decode(l: list[int]) -> str:
-    s = []
-    for i in l:
-        s.append(itos[i])
-    return ''.join(s)
+encode = encoder.encode_ordinary
+decode = encoder.decode
 

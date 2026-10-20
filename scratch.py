@@ -1,15 +1,10 @@
-import tiktoken
+import torch
+from dataset import get_batch
+from tokenizer import decode
 
-gpt2 = tiktoken.get_encoding('gpt2')
-print(gpt2.n_vocab)
+x, y = get_batch('train')
 
-sentence = gpt2.encode('Hello my name is Nihar')
-print(sentence)
-for token in sentence:
-    print(gpt2.decode([token]))
+print(x.shape)
+print(y.shape)
 
-with open('data/input.txt', 'r') as file:
-    TEXT = file.read()
-
-text = gpt2.encode(TEXT)
-print(len(TEXT)/len(text))
+print(decode(x[0].tolist()))
