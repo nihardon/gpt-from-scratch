@@ -14,7 +14,6 @@ BATCH_SIZE = 32
 device = 'cpu'
 if torch.backends.mps.is_available():
     device = 'mps'
-print(device)
 
 
 def get_batch(dt: str) -> tuple[torch.Tensor, torch.Tensor]:
