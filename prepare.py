@@ -1,6 +1,6 @@
 import numpy as np
 from tokenizer import encode, EOT 
-
+from config import TRAIN, VAL
 
 DEBUG = True
 
@@ -29,7 +29,11 @@ def prepare(t: str):
 
     num_stories = len(text)
     num_tokens = 0
-    with open(f'data/{t}.bin', 'wb') as out:
+
+    path = TRAIN
+    if t == 'val':
+        path = VAL
+    with open(path, 'wb') as out:
         for story in text:
             encoding = encode(story)
             encoding.append(EOT)

@@ -1,14 +1,8 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from dataset import BLOCK_SIZE
+from config import BLOCK_SIZE, N_EMBED, N_HEAD, N_LAYER, DROPOUT
 from tokenizer import VOCAB_SIZE
-
-
-N_EMBED = 128
-N_HEAD = 4
-N_LAYER = 4
-DROPOUT = 0.2
 
 
 class Head(nn.Module):

@@ -1,14 +1,15 @@
 from model import Transformer, generate
 from dataset import device
 import torch
-from tokenizer import decode
+from tokenizer import decode, EOT
+from config import CHECKPOINT
 
 model = Transformer()
 model = model.to(device)
-model.load_state_dict(torch.load('best.pt', map_location=device))
+model.load_state_dict(torch.load(CHECKPOINT, map_location=device))
 
 model.eval()
-context = torch.tensor([[0]], dtype=torch.long, device=device)
+context = torch.tensor([[EOT]], dtype=torch.long, device=device)
 for _ in range(500):
     context = generate(model, context)
 

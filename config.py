@@ -1,0 +1,17 @@
+BLOCK_SIZE = 256
+BATCH_SIZE = 32
+
+N_EMBED = 256
+N_HEAD = 8
+N_LAYER = 8
+DROPOUT = 0
+
+MAX_STEPS = 5000
+EVAL_ITERS = 200
+EVAL_INTERVAL = 500
+LR = .001
+SEED = 1
+
+TRAIN = 'data/train.bin'
+VAL = 'data/val.bin'
+CHECKPOINT = 'best.pt'

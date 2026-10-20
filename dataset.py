@@ -1,15 +1,13 @@
 import torch
 import numpy as np
-
-BLOCK_SIZE = 256
-BATCH_SIZE = 32
+from config import BLOCK_SIZE, BATCH_SIZE, TRAIN, VAL
 
 device = 'cpu'
 if torch.backends.mps.is_available():
     device = 'mps'
 
-train_data = np.memmap('data/train.bin', np.uint16, 'r')
-val_data = np.memmap('data/val.bin', np.uint16, 'r')
+train_data = np.memmap(TRAIN, np.uint16, 'r')
+val_data = np.memmap(VAL, np.uint16, 'r')
 
 def get_batch(dt: str) -> tuple[torch.Tensor, torch.Tensor]:
     batch_x = []
