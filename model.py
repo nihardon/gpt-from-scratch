@@ -1,14 +1,17 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from dataset import get_batch, BLOCK_SIZE
+from dataset import get_batch, BLOCK_SIZE, device
 from tokenizer import VOCAB_SIZE, decode
+import time
 
-N_EMBED = 32
+N_EMBED = 128
 N_HEAD = 4
-N_LAYER = 3
+N_LAYER = 4
 EVAL_ITERS = 200
 torch.manual_seed(1)
+
+
 
 
 class Head(nn.Module):
@@ -91,7 +94,7 @@ class Transformer(nn.Module):
         self.out_scores = nn.Linear(N_EMBED, VOCAB_SIZE)
 
     def forward(self, x, y = None):
-        positions = torch.arange(x.shape[1])
+        positions = torch.arange(x.shape[1], device=x.device)
         embeddings = self.embedding_model(x)
         positional_encodings = self.positional_encoding(positions)
         stream = embeddings + positional_encodings
@@ -135,13 +138,14 @@ def generate(model: Transformer, context: torch.Tensor):
 
 
 model = Transformer()
+model = model.to(device)
 optimizer = torch.optim.AdamW(model.parameters(), 0.001)
 params = 0
 for layer in model.parameters():
      params += layer.numel()
 print(params)
 
-
+start = time.time()
 for step in range(5000):
     x, y = get_batch('train')
 
@@ -153,9 +157,10 @@ for step in range(5000):
     if step % 500 == 0:
         train_loss, val_loss = estimate_loss(model)
         print(f'Step: {step}   Train Loss: {train_loss}   Val Loss: {val_loss}')
+end = time.time()
+print(f'Training time: {end - start}')
 
-
-context = torch.tensor([[0]], dtype=torch.long)
+context = torch.tensor([[0]], dtype=torch.long, device=device)
 for _ in range(500):
     context = generate(model, context)
 

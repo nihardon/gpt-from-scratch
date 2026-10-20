@@ -8,8 +8,14 @@ split_i = (len(data) * 9 // 10)
 train_data = data[:split_i]
 val_data = data[split_i:]
 
-BLOCK_SIZE = 8
+BLOCK_SIZE = 64
 BATCH_SIZE = 32
+
+device = 'cpu'
+if torch.backends.mps.is_available():
+    device = 'mps'
+print(device)
+
 
 def get_batch(dt: str) -> tuple[torch.Tensor, torch.Tensor]:
     batch_x = []
@@ -24,5 +30,8 @@ def get_batch(dt: str) -> tuple[torch.Tensor, torch.Tensor]:
         batch_x.append(d[i:i+BLOCK_SIZE])
         batch_y.append(d[i+1:i+BLOCK_SIZE+1])
 
-    return torch.stack(batch_x), torch.stack(batch_y)
+    x, y = torch.stack(batch_x), torch.stack(batch_y)
+    x = x.to(device)
+    y = y.to(device)
+    return x, y
 
