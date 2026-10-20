@@ -8,6 +8,9 @@ import time
 N_EMBED = 128
 N_HEAD = 4
 N_LAYER = 4
+DROPOUT = 0.0
+MAX_STEPS = 15000
+
 EVAL_ITERS = 200
 torch.manual_seed(1)
 
@@ -24,6 +27,7 @@ class Head(nn.Module):
         mask = torch.ones(BLOCK_SIZE, BLOCK_SIZE)
         mask = torch.tril(mask)
         self.register_buffer('mask', mask)
+        self.dropout = nn.Dropout(DROPOUT)
 
     def forward(self, x):
         B, T, C = x.shape
@@ -36,6 +40,7 @@ class Head(nn.Module):
         scores = scores / (self.head_size ** 0.5)
         scores = scores.masked_fill(mask==0, float('-inf'))
         scores = F.softmax(scores, dim = -1)
+        scores = self.dropout(scores)
         scores = scores @ v
         return scores
 
@@ -46,20 +51,24 @@ class MultiHeadAttention(nn.Module):
         for _ in range(N_HEAD):
             self.heads.append(Head(N_EMBED//N_HEAD))
         self.linear_layer = nn.Linear(N_EMBED, N_EMBED)
+        self.dropout = nn.Dropout(DROPOUT)
 
     def forward(self, x):
         out = []
         for head in self.heads:
             out.append(head(x))
         out = torch.cat(out, dim=-1)
-        return self.linear_layer(out)
+        out = self.linear_layer(out)
+        out = self.dropout(out)
+        return out
 
 class FeedForward(nn.Module):
     def __init__(self):
         super().__init__()
         self.ff = nn.Sequential(nn.Linear(N_EMBED, 4*N_EMBED), 
                                 nn.ReLU(), 
-                                nn.Linear(4*N_EMBED, N_EMBED))
+                                nn.Linear(4*N_EMBED, N_EMBED),
+                                nn.Dropout(DROPOUT))
 
     def forward(self, x):
         out = self.ff(x)
@@ -115,6 +124,8 @@ class Transformer(nn.Module):
 
 @torch.no_grad()
 def estimate_loss(model: Transformer):
+    model.eval()
+    
     train_loss = 0
     val_loss = 0
     for _ in range(EVAL_ITERS):
@@ -123,6 +134,8 @@ def estimate_loss(model: Transformer):
 
         x, y = get_batch('val')
         val_loss += model(x, y)[1]
+
+    model.train()
 
     return train_loss/EVAL_ITERS, val_loss/EVAL_ITERS
 
@@ -146,7 +159,7 @@ for layer in model.parameters():
 print(params)
 
 start = time.time()
-for step in range(5000):
+for step in range(MAX_STEPS):
     x, y = get_batch('train')
 
     loss = model(x, y)[1]
@@ -154,12 +167,13 @@ for step in range(5000):
     loss.backward()
     optimizer.step()
 
-    if step % 500 == 0:
+    if step % 1000 == 0:
         train_loss, val_loss = estimate_loss(model)
         print(f'Step: {step}   Train Loss: {train_loss}   Val Loss: {val_loss}')
 end = time.time()
 print(f'Training time: {end - start}')
 
+model.eval()
 context = torch.tensor([[0]], dtype=torch.long, device=device)
 for _ in range(500):
     context = generate(model, context)
