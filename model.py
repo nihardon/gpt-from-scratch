@@ -2,16 +2,13 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from dataset import get_batch, BLOCK_SIZE
-from tokenizer import VOCAB_SIZE
-
+from tokenizer import VOCAB_SIZE, decode
 
 N_EMBED = 32
 N_HEAD = 4
 N_LAYER = 3
-
+EVAL_ITERS = 200
 torch.manual_seed(1)
-
-x, y = get_batch('train')
 
 
 class Head(nn.Module):
@@ -39,7 +36,6 @@ class Head(nn.Module):
         scores = scores @ v
         return scores
 
-
 class MultiHeadAttention(nn.Module):
     def __init__(self):
         super().__init__()
@@ -55,7 +51,6 @@ class MultiHeadAttention(nn.Module):
         out = torch.cat(out, dim=-1)
         return self.linear_layer(out)
 
-
 class FeedForward(nn.Module):
     def __init__(self):
         super().__init__()
@@ -66,7 +61,6 @@ class FeedForward(nn.Module):
     def forward(self, x):
         out = self.ff(x)
         return out
-
 
 class Block(nn.Module):    
     def __init__(self):
@@ -82,7 +76,7 @@ class Block(nn.Module):
         return stream + self.ff(self.norm2(stream))
 
 
-class GPT(nn.Module):
+class Transformer(nn.Module):
     def __init__(self):
         super().__init__()
         self.embedding_model = nn.Embedding(VOCAB_SIZE, N_EMBED)
@@ -96,7 +90,7 @@ class GPT(nn.Module):
         self.norm = nn.LayerNorm(N_EMBED)
         self.out_scores = nn.Linear(N_EMBED, VOCAB_SIZE)
 
-    def forward(self, x, y):
+    def forward(self, x, y = None):
         positions = torch.arange(x.shape[1])
         embeddings = self.embedding_model(x)
         positional_encodings = self.positional_encoding(positions)
@@ -105,24 +99,65 @@ class GPT(nn.Module):
         stream = self.blocks(stream)
         
         logits = self.out_scores(self.norm(stream))
+        
+        if y is None:
+            return logits
+    
         logits = logits.view(x.shape[0] * x.shape[1], VOCAB_SIZE)
         y = y.view(logits.shape[0])
         loss = F.cross_entropy(logits, y)
         return logits, loss
 
 
-model = GPT()
-optimizer = torch.optim.AdamW(model.parameters(), 0.01)
+
+@torch.no_grad()
+def estimate_loss(model: Transformer):
+    train_loss = 0
+    val_loss = 0
+    for _ in range(EVAL_ITERS):
+        x, y = get_batch('train')
+        train_loss += model(x, y)[1]
+
+        x, y = get_batch('val')
+        val_loss += model(x, y)[1]
+
+    return train_loss/EVAL_ITERS, val_loss/EVAL_ITERS
+
+@torch.no_grad()
+def generate(model: Transformer, context: torch.Tensor):
+    sliced_context = context[:, -BLOCK_SIZE:]
+    logits = model(sliced_context)
+    scores = logits[:, -1, :]
+    scores = F.softmax(scores, dim=-1)
+    index = torch.multinomial(scores, num_samples=1)
+    return torch.cat((context, index), dim=1)
+
+
+
+model = Transformer()
+optimizer = torch.optim.AdamW(model.parameters(), 0.001)
 params = 0
 for layer in model.parameters():
      params += layer.numel()
 print(params)
 
-for step in range(100):
-    loss = model(x,y)[1]
+
+for step in range(5000):
+    x, y = get_batch('train')
+
+    loss = model(x, y)[1]
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
 
-    if step % 10 == 0:
-        print(loss.item())
+    if step % 500 == 0:
+        train_loss, val_loss = estimate_loss(model)
+        print(f'Step: {step}   Train Loss: {train_loss}   Val Loss: {val_loss}')
+
+
+context = torch.tensor([[0]], dtype=torch.long)
+for _ in range(500):
+    context = generate(model, context)
+
+context = context[0].tolist()
+print(decode(context))

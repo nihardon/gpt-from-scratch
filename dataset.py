@@ -9,7 +9,7 @@ train_data = data[:split_i]
 val_data = data[split_i:]
 
 BLOCK_SIZE = 8
-BATCH_SIZE = 4
+BATCH_SIZE = 32
 
 def get_batch(dt: str) -> tuple[torch.Tensor, torch.Tensor]:
     batch_x = []
