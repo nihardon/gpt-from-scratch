@@ -3,9 +3,10 @@ from model import Transformer, generate
 from dataset import get_batch, device
 import time
 from tokenizer import decode, EOT
-from config import MAX_STEPS, EVAL_ITERS, LR, SEED, CHECKPOINT, EVAL_INTERVAL
-
+from config import MAX_STEPS, EVAL_ITERS, MAX_LR, MIN_LR, SEED, CHECKPOINT, EVAL_INTERVAL, WARMUP_STEPS
+import math
 torch.manual_seed(SEED)
+
 
 @torch.no_grad()
 def estimate_loss(model: Transformer):
@@ -24,9 +25,20 @@ def estimate_loss(model: Transformer):
 
     return train_loss/EVAL_ITERS, val_loss/EVAL_ITERS
 
+
+def learning_rate(step: int) -> float:
+    if step < WARMUP_STEPS:
+        return (MAX_LR) * ((step+1)/WARMUP_STEPS)
+    if step >= MAX_STEPS:
+        return MIN_LR
+    p = (step - WARMUP_STEPS)/(MAX_STEPS-WARMUP_STEPS)
+    return (MIN_LR + (0.5 * (MAX_LR-MIN_LR) * (1 + math.cos(math.pi * p))))
+
+
 model = Transformer()
 model = model.to(device)
-optimizer = torch.optim.AdamW(model.parameters(), LR)
+optimizer = torch.optim.AdamW(model.parameters(), MAX_LR)
+
 params = 0
 for layer in model.parameters():
      params += layer.numel()
@@ -37,8 +49,11 @@ best_val_loss = float('inf')
 start = time.time()
 for step in range(MAX_STEPS):
     x, y = get_batch('train')
-
+    
+    lr = learning_rate(step)
     loss = model(x, y)[1]
+    for group in optimizer.param_groups:
+        group['lr'] = lr
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
@@ -49,7 +64,7 @@ for step in range(MAX_STEPS):
             best_val_loss = val_loss
             torch.save(model.state_dict(), CHECKPOINT)
 
-        print(f'Step: {step}   Train Loss: {train_loss}   Val Loss: {val_loss}')
+        print(f'Step: {step}   Train Loss: {train_loss}   Val Loss: {val_loss} Learning Rate: {lr}')
 end = time.time()
 print(f'Training time: {end - start}')
 print(best_val_loss)
