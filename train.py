@@ -58,13 +58,13 @@ for step in range(MAX_STEPS):
     loss.backward()
     optimizer.step()
 
-    if step % EVAL_INTERVAL == 0:
+    if (step+1) % EVAL_INTERVAL == 0:
         train_loss, val_loss = estimate_loss(model)
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             torch.save(model.state_dict(), CHECKPOINT)
 
-        print(f'Step: {step}   Train Loss: {train_loss}   Val Loss: {val_loss} Learning Rate: {lr}')
+        print(f'Step: {step+1}   Train Loss: {train_loss}   Val Loss: {val_loss} Learning Rate: {lr}')
 end = time.time()
 print(f'Training time: {end - start}')
 print(best_val_loss)

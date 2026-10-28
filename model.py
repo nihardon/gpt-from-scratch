@@ -114,10 +114,16 @@ class Transformer(nn.Module):
 
 
 @torch.no_grad()
-def generate(model: Transformer, context: torch.Tensor):
+def generate(model: Transformer, context: torch.Tensor, temperature = 1.0, top_k = None):
     sliced_context = context[:, -BLOCK_SIZE:]
     logits = model(sliced_context)
-    scores = logits[:, -1, :]
+    scores = logits[:, -1, :]/temperature
+    
+    if top_k:
+        last_value = torch.topk(scores, top_k)[0][:, -1:]
+        scores = scores.masked_fill(scores < last_value, float('-inf'))
+
+    
     scores = F.softmax(scores, dim=-1)
     index = torch.multinomial(scores, num_samples=1)
     return torch.cat((context, index), dim=1)
