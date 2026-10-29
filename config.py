@@ -6,7 +6,8 @@ N_HEAD = 8
 N_LAYER = 8
 DROPOUT = 0
 
-MAX_STEPS = 20000
+NORM = 'rms'
+MAX_STEPS = 5000
 EVAL_ITERS = 200
 EVAL_INTERVAL = 1000
 MAX_LR = .001
@@ -20,4 +21,4 @@ TOP_K = 50
 
 TRAIN = 'data/train.bin'
 VAL = 'data/val.bin'
-CHECKPOINT = 'best2.pt'
+CHECKPOINT = 'rms_5k.pt'

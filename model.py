@@ -1,9 +1,20 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from config import BLOCK_SIZE, N_EMBED, N_HEAD, N_LAYER, DROPOUT
+from config import BLOCK_SIZE, N_EMBED, N_HEAD, N_LAYER, DROPOUT, NORM
 from tokenizer import VOCAB_SIZE
 
+
+class RMSNorm(nn.Module):
+    def __init__(self, size):
+        super().__init__()
+        self.scale = nn.Parameter(torch.ones(size))
+        self.epsilon = .000001
+
+    def forward(self, x):
+        rms = torch.sqrt(torch.mean(x**2, dim=-1, keepdim=True) + self.epsilon)
+        out = x / rms
+        return out * self.scale
 
 class Head(nn.Module):
     def __init__(self, head_size):
@@ -65,9 +76,13 @@ class FeedForward(nn.Module):
 class Block(nn.Module):    
     def __init__(self):
         super().__init__()
-        self.norm1 = nn.LayerNorm(N_EMBED)
+        if NORM == 'rms':
+            self.norm1 = RMSNorm(N_EMBED)
+            self.norm2 = RMSNorm(N_EMBED)
+        else:
+            self.norm1 = nn.LayerNorm(N_EMBED)
+            self.norm2 = nn.LayerNorm(N_EMBED)
         self.attention = MultiHeadAttention()
-        self.norm2 = nn.LayerNorm(N_EMBED)
         self.ff = FeedForward()
 
     def forward(self, x):
@@ -86,8 +101,10 @@ class Transformer(nn.Module):
         for _ in range(N_LAYER):
             blocks.append(Block())
         self.blocks = nn.Sequential(*blocks)
-        
-        self.norm = nn.LayerNorm(N_EMBED)
+        if NORM == 'rms':
+            self.norm = RMSNorm(N_EMBED)
+        else:
+            self.norm = nn.LayerNorm(N_EMBED)        
         self.out_scores = nn.Linear(N_EMBED, VOCAB_SIZE, bias=False)
         self.out_scores.weight = self.embedding_model.weight
 
