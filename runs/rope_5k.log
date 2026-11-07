@@ -1,0 +1,9 @@
+# Reconstructed from terminal output pasted 2026-11-06 (run was not tee'd). NORM=rms, POS=rope, 5K steps, seed 1.
+19173888
+Step: 1000   Train Loss: 2.2708611488342285   Val Loss: 2.2596728801727295 Learning Rate: 0.0009398586103781223
+Step: 2000   Train Loss: 1.9422290325164795   Val Loss: 1.9329262971878052 Learning Rate: 0.000722479612643756
+Step: 3000   Train Loss: 1.8016563653945923   Val Loss: 1.7996928691864014 Learning Rate: 0.000433815943268002
+Step: 4000   Train Loss: 1.7176426649093628   Val Loss: 1.7192370891571045 Learning Rate: 0.00019317036836241004
+Step: 5000   Train Loss: 1.6749211549758911   Val Loss: 1.6792654991149902 Learning Rate: 0.00010000009638285205
+Training time: 1177.0759291648865
+tensor(1.6793, device='mps:0')
