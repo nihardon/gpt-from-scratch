@@ -8,7 +8,7 @@ DROPOUT = 0
 
 POS = 'rope'
 NORM = 'rms'
-MAX_STEPS = 5000
+MAX_STEPS = 20000
 EVAL_ITERS = 200
 EVAL_INTERVAL = 1000
 MAX_LR = .001
@@ -19,7 +19,6 @@ SEED = 1
 TEMPERATURE = .8
 TOP_K = 50
 
-
 TRAIN = 'data/train.bin'
 VAL = 'data/val.bin'
-CHECKPOINT = 'rms_5k.pt'
+CHECKPOINT = 'rope_rms_20k.pt'
