@@ -22,7 +22,8 @@ class Head(nn.Module):
         self.head_size = head_size
 
         if POS == 'rope':
-            seq = torch.arange(0, -1, -2/head_size)[:head_size//2]
+            # pair i rotates at speed 10000^(-2i/d): fast pairs for nearby tokens, slow for far
+            seq = torch.arange(head_size//2) * (-2/head_size)
             speeds = 10000 ** seq
             positions = torch.arange(BLOCK_SIZE)
             angles = torch.outer(positions, speeds)
@@ -42,7 +43,8 @@ class Head(nn.Module):
         self.dropout = nn.Dropout(DROPOUT)
 
     def rotate(self, vec):
-        B, T, S = vec.shape
+        # RoPE: rotate (first half, second half) pairs by position, so q·k depends only on distance
+        T = vec.shape[1]
         a = vec[:, :, :self.head_size//2]
         b = vec[:, :, self.head_size//2:]
         cos = self.cos[:T]
@@ -137,21 +139,19 @@ class Transformer(nn.Module):
             self.norm = RMSNorm(N_EMBED)
         else:
             self.norm = nn.LayerNorm(N_EMBED)        
+        # weight tying: the output layer scores against the same table used to embed tokens
         self.out_scores = nn.Linear(N_EMBED, VOCAB_SIZE, bias=False)
         self.out_scores.weight = self.embedding_model.weight
 
+        # small init so the tied table doesn't produce huge initial logits
         torch.nn.init.normal_(self.embedding_model.weight, 0, 0.02)
 
     def forward(self, x, y = None):
+        stream = self.embedding_model(x)
         if POS != 'rope':
             positions = torch.arange(x.shape[1], device=x.device)
-            positional_encodings = self.positional_encoding(positions)
-        
-        embeddings = self.embedding_model(x)
-        stream = embeddings
-        if POS != 'rope':
-            stream += positional_encodings
-        
+            stream = stream + self.positional_encoding(positions)
+
         stream = self.blocks(stream)
         
         logits = self.out_scores(self.norm(stream))
@@ -175,9 +175,7 @@ def generate(model: Transformer, context: torch.Tensor, temperature = 1.0, top_k
         last_value = torch.topk(scores, top_k)[0][:, -1:]
         scores = scores.masked_fill(scores < last_value, float('-inf'))
 
-    
     scores = F.softmax(scores, dim=-1)
     index = torch.multinomial(scores, num_samples=1)
     return torch.cat((context, index), dim=1)
-
 

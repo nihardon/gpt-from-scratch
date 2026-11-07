@@ -1,51 +1,29 @@
 import numpy as np
-from tokenizer import encode, EOT 
-from config import TRAIN, VAL
+from tokenizer import encode, EOT
+from config import TRAIN_TXT, VAL_TXT, TRAIN, VAL
 
-DEBUG = True
 
-def prepare(t: str):
-    valid_inputs = {
-        'valid' : 'val',
-        'val' : 'val',
-        'validation' : 'val',
-        'train' : 'train'
-    }
-    t = valid_inputs[t]
-
-    path = 'data/TinyStoriesV2-GPT4-train.txt'
-    if t == 'val':
-        path = 'data/TinyStoriesV2-GPT4-valid.txt'
-    
-    with open(path, 'r', encoding='utf-8') as file:
+def prepare(src: str, dst: str):
+    with open(src, 'r', encoding='utf-8') as file:
         raw = file.read()
-    
-    split = text.split('<|endoftext|>')
-    text = []
-    for story in split:
+
+    stories = []
+    for story in raw.split('<|endoftext|>'):
         story = story.strip()
         if story:
-            text.append(story)
+            stories.append(story)
 
-    num_stories = len(text)
     num_tokens = 0
-
-    path = TRAIN
-    if t == 'val':
-        path = VAL
-    with open(path, 'wb') as out:
-        for story in text:
+    with open(dst, 'wb') as out:
+        for story in stories:
             encoding = encode(story)
             encoding.append(EOT)
             num_tokens += len(encoding)
-            arr = np.array(encoding, dtype=np.uint16)
-            arr.tofile(out)
-    
-    if DEBUG:
-        print(t + f' stories: {num_stories}')
-        print(t + f' tokens: {num_tokens}')
-        print(t + f' chars/token: {len(raw)/num_tokens}')
+            np.array(encoding, dtype=np.uint16).tofile(out)
+
+    print(f'{dst}: {len(stories)} stories, {num_tokens} tokens, {len(raw)/num_tokens:.2f} chars/token')
+
 
 if __name__ == '__main__':
-    prepare('train')
-    prepare('val')
+    prepare(TRAIN_TXT, TRAIN)
+    prepare(VAL_TXT, VAL)

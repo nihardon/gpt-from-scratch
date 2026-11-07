@@ -1,32 +1,20 @@
 import torch
 import numpy as np
-from config import BLOCK_SIZE, BATCH_SIZE, TRAIN, VAL
-
-device = 'cpu'
-if torch.backends.mps.is_available():
-    device = 'mps'
+from config import BLOCK_SIZE, BATCH_SIZE, TRAIN, VAL, device
 
 train_data = np.memmap(TRAIN, np.uint16, 'r')
 val_data = np.memmap(VAL, np.uint16, 'r')
 
-def get_batch(dt: str) -> tuple[torch.Tensor, torch.Tensor]:
+
+def get_batch(split: str) -> tuple[torch.Tensor, torch.Tensor]:
+    d = val_data if split == 'val' else train_data
+
     batch_x = []
     batch_y = []
-    d = train_data
-    if dt == 'val':
-        d = val_data
-
     for _ in range(BATCH_SIZE):
-        i = torch.randint(len(d)-BLOCK_SIZE-1, (1,)).item()
-        
-        x_row = d[i:i+BLOCK_SIZE].astype(np.int64)
-        batch_x.append(torch.from_numpy(x_row))
-        
-        y_row = d[i+1:i+BLOCK_SIZE+1].astype(np.int64)
-        batch_y.append(torch.from_numpy(y_row))
+        i = torch.randint(len(d) - BLOCK_SIZE - 1, (1,)).item()
+        batch_x.append(torch.from_numpy(d[i:i+BLOCK_SIZE].astype(np.int64)))
+        batch_y.append(torch.from_numpy(d[i+1:i+BLOCK_SIZE+1].astype(np.int64)))
 
     x, y = torch.stack(batch_x), torch.stack(batch_y)
-    x = x.to(device)
-    y = y.to(device)
-    return x, y
-
+    return x.to(device), y.to(device)

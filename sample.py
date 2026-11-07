@@ -1,20 +1,20 @@
-from model import Transformer, generate
-from dataset import device
+import sys
 import torch
+from model import Transformer, generate
 from tokenizer import decode, EOT
-from config import CHECKPOINT, TOP_K, TEMPERATURE, SEED
+from config import CHECKPOINT, TEMPERATURE, TOP_K, SAMPLE_TOKENS, SEED, device
+
+# usage: python sample.py [checkpoint]
 torch.manual_seed(SEED)
+checkpoint = sys.argv[1] if len(sys.argv) > 1 else CHECKPOINT
 
-
-
-model = Transformer()
-model = model.to(device)
-model.load_state_dict(torch.load(CHECKPOINT, map_location=device))
-
+model = Transformer().to(device)
+model.load_state_dict(torch.load(checkpoint, map_location=device))
 model.eval()
+
+# start from end-of-text, i.e. "a new story begins here"
 context = torch.tensor([[EOT]], dtype=torch.long, device=device)
-for _ in range(500):
+for _ in range(SAMPLE_TOKENS):
     context = generate(model, context, TEMPERATURE, TOP_K)
 
-context = context[0].tolist()
-print(decode(context))
+print(decode(context[0].tolist()))
