@@ -6,6 +6,7 @@ N_HEAD = 8
 N_LAYER = 8
 DROPOUT = 0
 
+POS = 'rope'
 NORM = 'rms'
 MAX_STEPS = 5000
 EVAL_ITERS = 200

@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from config import BLOCK_SIZE, N_EMBED, N_HEAD, N_LAYER, DROPOUT, NORM
+from config import BLOCK_SIZE, N_EMBED, N_HEAD, N_LAYER, DROPOUT, NORM, POS
 from tokenizer import VOCAB_SIZE
 
 
@@ -20,19 +20,48 @@ class Head(nn.Module):
     def __init__(self, head_size):
         super().__init__()
         self.head_size = head_size
+
+        if POS == 'rope':
+            seq = torch.arange(0, -1, -2/head_size)[:head_size//2]
+            speeds = 10000 ** seq
+            positions = torch.arange(BLOCK_SIZE)
+            angles = torch.outer(positions, speeds)
+            cos = torch.cos(angles)
+            sin = torch.sin(angles)
+            self.register_buffer('cos', cos, persistent=False)
+            self.register_buffer('sin', sin, persistent=False)
+
         self.query = nn.Linear(N_EMBED, head_size, bias=False)
         self.key = nn.Linear(N_EMBED, head_size, bias=False)
         self.value = nn.Linear(N_EMBED, head_size, bias=False)
+        
         mask = torch.ones(BLOCK_SIZE, BLOCK_SIZE)
         mask = torch.tril(mask)
         self.register_buffer('mask', mask)
+        
         self.dropout = nn.Dropout(DROPOUT)
+
+    def rotate(self, vec):
+        B, T, S = vec.shape
+        a = vec[:, :, :self.head_size//2]
+        b = vec[:, :, self.head_size//2:]
+        cos = self.cos[:T]
+        sin = self.sin[:T]
+        
+        new_a = a * cos - b * sin
+        new_b = a * sin + b * cos
+        return torch.cat((new_a, new_b), dim=-1)
 
     def forward(self, x):
         B, T, C = x.shape
         q = self.query(x)
         k = self.key(x)
         v = self.value(x)
+        
+        if POS == 'rope':
+            q = self.rotate(q)
+            k = self.rotate(k)
+
         k = k.transpose(-2, -1)
         scores = q @ k
         mask = self.mask[:T, :T]
@@ -95,7 +124,10 @@ class Transformer(nn.Module):
     def __init__(self):
         super().__init__()
         self.embedding_model = nn.Embedding(VOCAB_SIZE, N_EMBED)
-        self.positional_encoding = nn.Embedding(BLOCK_SIZE, N_EMBED)
+
+        if POS != 'rope':
+            self.positional_encoding = nn.Embedding(BLOCK_SIZE, N_EMBED)
+            torch.nn.init.normal_(self.positional_encoding.weight, 0, 0.02)
         
         blocks = []
         for _ in range(N_LAYER):
@@ -109,13 +141,16 @@ class Transformer(nn.Module):
         self.out_scores.weight = self.embedding_model.weight
 
         torch.nn.init.normal_(self.embedding_model.weight, 0, 0.02)
-        torch.nn.init.normal_(self.positional_encoding.weight, 0, 0.02)
 
     def forward(self, x, y = None):
-        positions = torch.arange(x.shape[1], device=x.device)
+        if POS != 'rope':
+            positions = torch.arange(x.shape[1], device=x.device)
+            positional_encodings = self.positional_encoding(positions)
+        
         embeddings = self.embedding_model(x)
-        positional_encodings = self.positional_encoding(positions)
-        stream = embeddings + positional_encodings
+        stream = embeddings
+        if POS != 'rope':
+            stream += positional_encodings
         
         stream = self.blocks(stream)
         
